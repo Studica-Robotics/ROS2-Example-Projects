@@ -1,0 +1,123 @@
+# studica_params.yaml
+#
+# Hardware configuration passed to studica_control via studica_launch.py.
+# This file is self-contained — you should not need to touch studica_control's
+# own params.yaml when using this package.
+#
+# Pass to the launch file:
+#   ros2 launch mecanum_drive manual_drive.launch.py
+#   (studica_params.yaml is picked up automatically)
+
+control_server:
+  ros__parameters:
+    use_sim_time: false
+
+    # Titan motor controller
+    # The sensor name "drive" must match titan: "drive" in this package's
+    # params.yaml — it determines the ROS topic prefix (/drive/m_N/cmd etc.).
+    titan:
+      enabled: true
+      sensors: ["drive"]
+      drive:
+        can_id: 10          # CAN bus ID of your Titan — check with titan_cmd service
+        motor_freq: 15600   # PWM frequency in Hz (15600 is the Titan default)
+
+        # Back-left — positive duty cycle = wheel drives robot forward
+        m_0:
+          encoder_mode: "quadrature"
+          dist_per_tick: 0.00025717   # π × 0.1m wheel / 1221.6 counts per rev
+          invert_motor:   false
+          invert_encoder: false
+          invert_rpm:     false
+
+        # Front-left — same side as m_0, no inversion needed
+        m_1:
+          encoder_mode: "quadrature"
+          dist_per_tick: 0.00025717
+          invert_motor:   false
+          invert_encoder: false
+          invert_rpm:     false
+
+        # Back-right — physically spins opposite direction for forward motion
+        m_2:
+          encoder_mode: "quadrature"
+          dist_per_tick: 0.00025717
+          invert_motor:   true    # flip so positive duty cycle = robot moves forward
+          invert_encoder: true    # flip so /encoder is positive going forward
+          invert_rpm:     true    # flip so /rpm is positive going forward
+
+        # Front-right — same side as m_2, same inversion
+        m_3:
+          encoder_mode: "quadrature"
+          dist_per_tick: 0.00025717
+          invert_motor:   true
+          invert_encoder: true
+          invert_rpm:     true
+
+    # IMU
+    imu:
+      enabled: true
+      name: "imu"
+      topic: "imu"
+      frame_id: "imu_link"
+
+    # Gamepad — DualShock 4 via Bluetooth
+    # DS4 axis reference: 0=LS-X  1=LS-Y  2=L2  3=RS-X  4=RS-Y  5=R2
+    # Stick up = -1, stick right = +1. Scales are negative to match ROS convention.
+    gamepad:
+      enabled: true
+      axis_linear_x:  1     # LS-Y — forward / backward
+      axis_linear_y:  0     # LS-X — strafe left / right (holonomic)
+      axis_angular_z: 3     # RS-X — turn left / right
+      linear_scale:    0.5  # positive: motor wiring is inverted so flip sign
+      angular_scale:   1.0  # positive: motor arrangement requires flipped angular sign
+      deadzone:       0.05
+      button_turbo:   5     # R1
+      turbo_multiplier: 2.0
+      publish_rate:   50    # Hz — joy node runs at 100Hz so this can be tuned up to 100
+      cmd_vel_topic:  "cmd_vel"
+
+    # Digital I/O
+    # Buttons are pulled high — pin reads low (false) when pressed.
+    # LEDs turn on with high (true), off with low (false).
+    # Topics: <name>/state (std_msgs/Bool) — input state at 10hz
+    #         <name>/cmd  (std_msgs/Bool) — set LED on/off
+    dio:
+      enabled: true
+      sensors: ["button_start", "button_reset", "button_stop",
+                "led_start",    "led_reset",    "led_stop"]
+
+      button_start:
+        pin:  8
+        type: "input"
+      button_reset:
+        pin:  9
+        type: "input"
+      button_stop:
+        pin:  10
+        type: "input"
+
+      led_start:
+        pin:  12
+        type: "output"
+      led_reset:
+        pin:  13
+        type: "output"
+      led_stop:
+        pin:  14
+        type: "output"
+
+    # Light Tower
+    # 5-output LED tower. Only one colour/buzzer may be active at a time.
+    # Service: /light_tower/set  params: "red", "green:blink", "yellow:blink_hw",
+    #          "buzzer:2.5", "off"  (see light_tower_component.hpp for full reference)
+    # Topic:   /light_tower/state  (std_msgs/String) — current state
+    light_tower:
+      enabled: true
+      name: "light_tower"
+      pin_continuous: 0
+      pin_red:        1
+      pin_green:      2
+      pin_yellow:     3
+      pin_buzzer:     4
+      default_blink_hz: 1.0

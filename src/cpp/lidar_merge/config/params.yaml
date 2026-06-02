@@ -1,0 +1,48 @@
+lidar_merge:
+  ros__parameters:
+
+    # front lidar
+    # Mounted at the front of the robot. With inverted:true + reversion:true on
+    # the YDLidar driver, scan angle 0° points outward (forward), so yaw = 0.
+    front:
+      topic: /front/scan          # must match the remap in lidar_merge.launch.py
+      x:      0.19195             # metres forward of base_link origin
+      y:      0.0
+      yaw:    0.0                 # lidar zero points forward (outward)
+
+    # back lidar
+    # Mounted at the back of the robot. With inverted:true + reversion:true on
+    # the YDLidar driver, scan angle 0° points outward (backward), so yaw = π.
+    back:
+      topic: /back/scan           # must match the remap in lidar_merge.launch.py
+      x:     -0.19195             # metres behind base_link origin
+      y:      0.0
+      yaw:    3.14159265          # π — lidar zero points backward (outward)
+
+    # scan geometry 
+    # Half-angle of the valid measurement arc, measured from the outward direction
+    # (0° in each lidar's frame, since inverted+reversion makes 0° face outward).
+    # Points outside ±valid_half_angle_deg are discarded — they look through the
+    # robot body. 103° gives a ±103° window centred on forward/backward.
+    valid_half_angle_deg: 103.0   # valid band: ±103° of 0° (outward)
+
+    # noise filters
+    # Intensity threshold: rays with intensity below this are discarded before
+    # projection.  0.0 = disabled.  Try 100–200 if noisy ghost points appear.
+    min_intensity:        0.0
+
+    # Neighbor filter: after merging, any output bin with fewer than min_neighbors
+    # occupied neighbours within ±neighbor_window_deg at a similar range is removed.
+    # Set min_neighbors to 0 to disable entirely.
+    min_neighbors:        1       # require at least 1 close neighbour
+    neighbor_window_deg:  2.0     # search window each side (degrees)
+    neighbor_dist_tol:    0.3     # max range difference to count as neighbour (m)
+
+    # output scan
+    # base_scan is a frame at z=0.1083 (lidar height) defined in lidar_merge.launch.py.
+    # This puts the merged scan at the same height as the individual scans in rviz.
+    output_frame:          base_scan
+    output_resolution_deg: 0.5    # angular resolution of merged scan (degrees)
+    range_min:             0.05   # metres
+    range_max:             12.0   # metres (Tmini Plus max range)
+    output_topic:          /scan

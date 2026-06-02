@@ -1,0 +1,28 @@
+# YDLidar Tmini Plus — back lidar driver params.
+# The key must match the node name set in lidar_merge.launch.py (back_lidar).
+# Set 'port' to the correct serial device (check with: ls /dev/ttyUSB*).
+
+back_lidar:
+  ros__parameters:
+    port:                 /dev/ttyUSB1
+    frame_id:             back_lidar
+    ignore_array:         ""
+    baudrate:             230400
+    lidar_type:           1
+    device_type:          0
+    sample_rate:          4
+    intensity_bit:        8
+    abnormal_check_count: 4
+    fixed_resolution:     true
+    reversion:            true
+    inverted:             true
+    auto_reconnect:       true
+    isSingleChannel:      false
+    intensity:            true
+    support_motor_dtr:    false
+    angle_min:           -103.0   # ±103° outward arc — matches merge valid_half_angle_deg
+    angle_max:            103.0
+    range_min:            0.05
+    range_max:            12.0
+    frequency:            10.0
+    invalid_range_is_inf: false

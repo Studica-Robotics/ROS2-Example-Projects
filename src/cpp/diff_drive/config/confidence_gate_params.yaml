@@ -1,0 +1,75 @@
+# confidence_gate_params.yaml
+#
+# Parameters for confidence_scan_gate_node.
+# This node sits between /scan (lidar_merge) and slam_toolbox, filtering out
+# frames that would corrupt the map.
+#
+# Pipeline:
+#   /scan -> [motion gate] -> [overlap gate] -> [ghost wall gate] -> /scan_filtered -> slam_toolbox
+#
+# Tuning guide:
+#   - If the map builds too slowly: lower min_overlap_ratio, raise max_linear_speed
+#   - If ghost walls appear:        raise ghost_min_run_length or lower ghost_max_offset
+#   - If new rooms aren't mapped:   min_validation_points < 30 means unexplored area passes through
+#   - If SLAM keeps dropping:       starvation guard will force-pass; lower thresholds if it fires often
+
+confidence_scan_gate:
+  ros__parameters:
+
+    input_scan_topic:  /scan
+    output_scan_topic: /scan_filtered
+    map_topic:         /map
+    odom_topic:        /odometry/filtered   # EKF output — smoother than raw /odom
+
+    # Bootstrap
+    # Pass all scans unconditionally until SLAM has built enough map to compare
+    # against. Prevents the overlap gate from deadlocking on startup.
+    bootstrap_scan_count:             40
+    min_occupied_cells_before_gating: 200
+
+    # Motion gate
+    # Rejects scans taken while the robot is moving fast or accelerating hard.
+    # Scan blur from motion is the most common source of map smearing.
+    enable_motion_gate: true
+    max_linear_speed:   0.50    # m/s   — above this the scan is blurred
+    max_angular_speed:  0.75    # rad/s — at 1.5 rad/s robot rotates ~8° per scan sweep, blurring walls into arcs
+    max_linear_accel:   0.75    # m/s²  — reject during hard start/stop
+    max_angular_accel:  1.50    # rad/s²
+
+    # Overlap gate
+    # Checks that enough scan points land near existing occupied cells.
+    # If fewer than min_validation_points fall on known cells, the robot is in
+    # an unexplored area — the scan is passed through so SLAM can extend the map.
+    # Only rejects when context exists but the overlap ratio is too low.
+    enable_overlap_gate:    true
+    sample_stride:          3       # check every Nth ray (3 = fast enough on Pi)
+    min_validation_points:  30      # below this = unexplored area, always pass
+    min_overlap_ratio:      0.58    # 58% of validated points must be near a wall
+    occupied_near_radius:   0.12    # m — search radius around each point
+
+    # Ghost wall gate
+    # Detects a long run of points in the shadow band just off an existing wall
+    # (ghost_min_offset .. ghost_max_offset). This is the signature of a
+    # duplicate-wall artifact from a bump or localization slip.
+    #
+    # Non-suspicious points within a run do NOT break it — only a spatial gap
+    # larger than ghost_max_point_gap does. This prevents isolated noise from
+    # hiding a genuinely bad arc.
+    enable_ghost_wall_gate: false   # disabled for diagnosis — re-enable once SLAM is stable
+    ghost_min_offset:       0.08    # m — closer than this = on the wall (not ghost)
+    ghost_max_offset:       0.35    # m — further than this = unrelated to wall
+    ghost_max_point_gap:    0.18    # m — max gap between suspicious points in a run
+    ghost_min_run_length:   0.75    # m — minimum run length to trigger rejection
+
+    # Starvation guard
+    # If the gates are rejecting too high a fraction of scans over a sliding
+    # window, force-pass the next scan to prevent SLAM from losing localization.
+    # Force-passes are NOT counted in the window so the rate reflects real gate
+    # performance and doesn't suppress itself.
+    enable_starvation_guard: true
+    starvation_window_size:  200    # look at the last N gate decisions (was 50 — too small, burst of 43 rejections dominated)
+    starvation_threshold:    0.90   # force-pass if >90% were rejected (was 0.85)
+
+    # Misc
+    pass_on_tf_failure:       true  # if TF lookup fails, pass rather than reject
+    debug_log_every_n_scans:  200   # log pass/reject status every N scans (~every 20s at 10Hz)

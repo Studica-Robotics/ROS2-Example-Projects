@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>graph_builder_cpp</name>
+  <version>1.0.0</version>
+  <description>
+    Interactive route graph builder for nav2_route.
+    Click waypoints in RViz, connect them into a graph, save as GeoJSON.
+    Used alongside any drive package that uses route_navigation.launch.py.
+  </description>
+  <maintainer email="james.taylor@studica.com">James Taylor</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>visualization_msgs</depend>
+
+  <!-- GeoJSON save/load: sudo apt install nlohmann-json3-dev -->
+  <build_depend>nlohmann-json3-dev</build_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

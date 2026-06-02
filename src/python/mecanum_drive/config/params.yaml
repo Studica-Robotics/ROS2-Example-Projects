@@ -1,0 +1,142 @@
+# Motor positions are declared in both mecanum_drive and odometry sections so each
+# node can independently derive its topic names without coupling the two nodes.
+
+mecanum_drive:
+  ros__parameters:
+
+    # Each wheel independently specifies which Titan instance and which port it is
+    # wired to. titan must match a name in studica_control's params.yaml sensors list.
+    #
+    # For right-side motors that spin opposite to left-side when driving forward,
+    # set all three inversion flags in studica_control params.yaml:
+    #   invert_motor:   true   — so a positive /cmd duty cycle drives forward
+    #   invert_encoder: true   — so /encoder distance is positive going forward
+    #   invert_rpm:     true   — so /rpm is positive going forward
+
+    # single Titan (all 4 motors on "drive", ports 0-3)
+    front_left:
+      titan: "drive"
+      port: 1
+    front_right:
+      titan: "drive"
+      port: 3
+    rear_left:
+      titan: "drive"
+      port: 0
+    rear_right:
+      titan: "drive"
+      port: 2
+
+    max_linear:  0.6273
+    max_angular: 2.0
+
+    cmd_vel_topic: "cmd_vel"
+
+    # Rate at which motor commands are sent to the Titan via studica_control topics.
+    # Must not exceed the Titan's internal CAN processing rate (~50 Hz).
+    publish_rate: 50
+
+    # Jerk limiting — max duty cycle change per timer tick (0.0–1.0).
+    # At 50 Hz: 0.05 → full speed in 400 ms, 1.0 → disabled (instant).
+    accel_rate: 0.05
+
+odometry:
+  ros__parameters:
+
+    # Motor positions must match those in mecanum_drive above.
+    front_left:
+      titan: "drive"
+      port: 1
+    front_right:
+      titan: "drive"
+      port: 3
+    rear_left:
+      titan: "drive"
+      port: 0
+    rear_right:
+      titan: "drive"
+      port: 2
+
+    wheel_radius: 0.05    # metres — 100mm mecanum wheel
+    gear_ratio:   1.0     # motor_turns / wheel_turns (1.0 = direct drive)
+    track_width:  0.3     # metres — left-to-right wheel centre distance
+    wheel_base:   0.336   # metres — front-to-rear wheel centre distance (mecanum only)
+
+    imu_topic: "imu"
+
+    odom_topic: "odom"
+    odom_frame: "odom"
+    base_frame: "base_link"
+
+    publish_tf: false
+
+# joy_node
+# DualShock 4 via Bluetooth — Linux hid-sony axis/button reference:
+#   Axes:    0 = LS-X   1 = LS-Y   2 = L2    3 = RS-X   4 = RS-Y   5 = R2
+#   Buttons: 0 = Square  1 = Cross  2 = Circle  3 = Triangle
+#            4 = L1      5 = R1     6 = L2      7 = R2
+#            8 = Share   9 = Options  10 = L3   11 = R3   12 = PS
+#
+# Recommended studica_control gamepad params for mecanum drive:
+#   axis_linear_x:  1      # LS-Y — forward / backward
+#   axis_linear_y:  0      # LS-X — strafe left / right  (holonomic!)
+#   axis_angular_z: 3      # RS-X — turn left / right
+#   linear_scale:    0.5   # positive: motor wiring is inverted so flip sign
+#   angular_scale:  -1.0   # negative: stick left = -1 = +z (left turn) in ROS
+#   button_turbo:   5      # R1
+#   turbo_multiplier: 2.0
+#   deadzone:       0.05
+#   publish_rate:   50     # Hz
+#   cmd_vel_topic:  "cmd_vel"
+joy_node:
+  ros__parameters:
+    device_id:       0
+    autorepeat_rate: 0.0
+
+ekf_node:
+  ros__parameters:
+
+    frequency: 10.0          # EKF update rate (Hz) — Pi can't sustain more with full slam stack
+    sensor_timeout: 0.1
+    two_d_mode: true
+    publish_tf: true
+    print_diagnostics: true
+
+    map_frame:       map
+    odom_frame:      odom
+    base_link_frame: base_link
+    world_frame:     odom
+
+    # source 0: wheel odometry (/odom)
+    # Mecanum odometry provides x, y, vx, vy, vyaw — full holonomic state.
+    # yaw from /odom (integrated gyro) is accurate indoors; IMU orientation
+    # (magnetometer) drifts ~58° and is excluded from yaw fusion.
+    #
+    #   x    y    z      roll   pitch  yaw    vx     vy     vz
+    #   vroll vpitch vyaw   ax     ay     az
+    odom0: /odom
+    odom0_config: [true,  true,  false,
+                   false, false, true,
+                   true,  true,  false,
+                   false, false, true,
+                   false, false, false]
+    odom0_differential: false
+    odom0_relative: false
+
+    # source 1: IMU (/imu)
+    # IMU orientation is NOT used for yaw — magnetometer bias drifts ~58° indoors.
+    # /odom yaw (integrated gyro) is fed from odom0 above instead.
+    # IMU contributes vyaw (angular velocity cross-check) and ax, ay (acceleration
+    # for velocity smoothing — both axes meaningful on a holonomic platform).
+    #
+    #   x    y    z      roll   pitch  yaw    vx     vy     vz
+    #   vroll vpitch vyaw   ax     ay     az
+    imu0: /imu
+    imu0_config: [false, false, false,
+                  false, false, false,
+                  false, false, false,
+                  false, false, true,
+                  true,  true,  false]
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true

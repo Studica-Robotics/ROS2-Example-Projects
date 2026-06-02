@@ -1,0 +1,162 @@
+# Motor positions are declared in both diff_drive and odometry sections so each
+# node can independently derive its topic names without coupling the two nodes.
+
+diff_drive:
+  ros__parameters:
+
+    # Each wheel independently specifies which Titan instance and which port it is
+    # wired to. titan must match a name in studica_control's params.yaml sensors list.
+
+    # single Titan (all 4 motors on "drive", ports 0-3)
+    # Motor ports must match studica_control params.yaml Titan configuration.
+    # For right-side motors that spin opposite to left-side when driving forward,
+    # set all three inversion flags in studica_control params.yaml:
+    #   invert_motor:   true   — so a positive /cmd duty cycle drives forward
+    #   invert_encoder: true   — so /encoder distance is positive going forward
+    #   invert_rpm:     true   — so /rpm is positive going forward
+    # All three are independent; odometry uses both /encoder and /rpm.
+    front_left:
+      titan: "drive"
+      port: 1
+    front_right:
+      titan: "drive"
+      port: 3
+    rear_left:
+      titan: "drive"
+      port: 0
+    rear_right:
+      titan: "drive"
+      port: 2
+
+    # Velocity normalization.
+    # max_linear  — the m/s value that maps to full duty cycle (1.0).
+    # max_angular — the rad/s value that produces a full left/right differential.
+    max_linear:  0.6273 # using the 50.9:1 drive motors
+    max_angular: 25.0   # measured: 0.3 cmd at old 2.0 → 4 rad/s physical → actual max ≈ 27 rad/s
+
+    cmd_vel_topic: "cmd_vel"
+
+    # Rate at which motor commands are sent to the Titan via studica_control topics.
+    publish_rate: 50 # 50 hz
+
+    # Jerk limiting — max duty cycle change per timer tick (0.0–1.0).
+    # Reduces mecanum roller slip on sharp stick inputs, improving odometry accuracy.
+    # At 50 Hz: 0.05 → full speed in 400 ms, 0.10 → 200 ms, 1.0 → disabled (instant).
+    accel_rate: 0.05
+
+odometry:
+  ros__parameters:
+
+    # Motor positions must match those in diff_drive above.
+    front_left:
+      titan: "drive"
+      port: 1
+    front_right:
+      titan: "drive"
+      port: 3
+    rear_left:
+      titan: "drive"
+      port: 0
+    rear_right:
+      titan: "drive"
+      port: 2
+
+    # Wheel geometry — used to convert RPM → m/s and to derive encoder angular velocity.
+    # Position is integrated from encoder distance deltas (set dist_per_tick in
+    # studica_control so encoder topics publish metres).
+    wheel_radius: 0.05    # metres — 100mm mecanum wheel
+    gear_ratio:   1.0     # motor_turns / wheel_turns (1.0 = direct drive)
+    track_width:  0.3     # metres — left-to-right wheel centre distance
+
+    # IMU topic published by studica_control (sensor_msgs/Imu).
+    imu_topic: "imu"
+
+    odom_topic: "odom"
+    odom_frame: "odom"
+    base_frame: "base_link"
+
+    # publish_tf is false here because ekf_node owns the odom -> base_link transform.
+    # Set to true only when running without robot_localization.
+    publish_tf: false
+
+# joy_node
+# Raw joystick driver — publishes sensor_msgs/Joy on /joy.
+# studica_control's gamepad_component subscribes to /joy and converts it to
+# /cmd_vel. Configure axis mapping and scales in studica_control's params.yaml
+# under control_server.ros__parameters.gamepad (see DS4 reference below).
+#
+# DualShock 4 via Bluetooth — Linux hid-sony axis/button reference:
+#   Axes:    0 = LS-X   1 = LS-Y   2 = L2    3 = RS-X   4 = RS-Y   5 = R2
+#            (stick up = -1, stick right = +1, triggers: -1=released +1=pressed)
+#   Buttons: 0 = Square  1 = Cross  2 = Circle  3 = Triangle
+#            4 = L1      5 = R1     6 = L2      7 = R2
+#            8 = Share   9 = Options  10 = L3   11 = R3   12 = PS
+#
+# Recommended studica_control gamepad params for diff drive:
+#   axis_linear_x:  1      # LS-Y — forward / backward
+#   axis_linear_y:  -1     # unmapped (no strafe on diff drive)
+#   axis_angular_z: 3      # RS-X — turn left / right
+#   linear_scale:    0.5   # positive: motor wiring is inverted so flip sign
+#   angular_scale:  -1.0   # negative: stick left = -1 = +z (left turn) in ROS
+#   button_turbo:   5      # R1
+#   turbo_multiplier: 2.0
+#   deadzone:       0.05
+#   publish_rate:   50     # Hz — joy node runs at 100Hz so this can be tuned up to 100
+#   cmd_vel_topic:  "cmd_vel"
+#
+# Run 'ros2 topic echo /joy' with the controller connected to verify indices.
+joy_node:
+  ros__parameters:
+    device_id:       0      # 0 = first joystick — check /dev/input/js* if wrong
+    autorepeat_rate: 0.0    # 0 = publish only on change
+
+ekf_node:
+  ros__parameters:
+
+    frequency: 10.0          # EKF update rate (Hz) — Pi can't sustain more with full slam stack running
+    sensor_timeout: 0.1      # seconds before a sensor is considered stale
+    two_d_mode: true         # ignore z, roll, pitch — planar robot
+    publish_tf: true         # ekf_node publishes odom -> base_link
+    print_diagnostics: true
+
+    map_frame:       map
+    odom_frame:      odom
+    base_link_frame: base_link
+    world_frame:     odom    # use odom as world frame (no GPS / map corrections)
+
+    # source 0: wheel odometry (/odom)
+    # odometry_node integrates IMU angular_velocity.z for heading — not the absolute
+    # IMU orientation quaternion. After a full mapping loop the /odom yaw reads +0.3°
+    # (wheel odometry) vs –58° from the IMU orientation (magnetometer contamination).
+    # We now feed /odom yaw directly here; the IMU orientation is excluded from yaw.
+    #
+    # State vector indices:
+    #   x    y    z      roll   pitch  yaw    vx     vy     vz
+    #   vroll vpitch vyaw   ax     ay     az
+    odom0: /odom
+    odom0_config: [true,  true,  false,
+                   false, false, true,
+                   true,  false, false,
+                   false, false, true,
+                   false, false, false]
+    odom0_differential: false
+    odom0_relative: false
+
+    # source 1: IMU (/imu)
+    # IMU orientation is NOT used for yaw — the absolute quaternion has magnetometer
+    # bias that drifts over a mapping run indoors. /odom yaw (integrated gyro
+    # via odometry_node) is far more accurate and is fed from odom0 above instead.
+    # IMU contributes only raw angular velocity (vyaw cross-check) and linear
+    # acceleration (ax for velocity smoothing).
+    #
+    #   x    y    z      roll   pitch  yaw    vx     vy     vz
+    #   vroll vpitch vyaw   ax     ay     az
+    imu0: /imu
+    imu0_config: [false, false, false,
+                  false, false, false,
+                  false, false, false,
+                  false, false, true,
+                  true,  false, false]
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true

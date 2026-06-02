@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>lidar_merge_cpp</name>
+  <version>1.0.0</version>
+  <description>C++ — Scan pipeline: merge two YDLidar Tmini Plus scans into /scan,
+  then gate them through the confidence_scan_gate_node for clean SLAM input.
+  Shared by all drive packages (diff_drive, mecanum_drive).</description>
+  <maintainer email="james.taylor@studica.com">James Taylor</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+
+  <exec_depend>ydlidar_ros2_driver</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

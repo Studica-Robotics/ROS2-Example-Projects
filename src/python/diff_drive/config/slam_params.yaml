@@ -1,0 +1,62 @@
+# SLAM Toolbox — async mapping configuration.
+# Used by mapping.launch.py.
+#
+# SLAM Toolbox uses the TF tree for odometry (odom -> base_link), not a topic.
+# The ekf_node in this stack owns and publishes that transform.
+#
+# /scan_filtered is produced by confidence_scan_gate_node (lidar_merge_cpp),
+# which subscribes to /scan and passes only high-confidence frames.
+
+slam_toolbox:
+  ros__parameters:
+
+    # Frames
+    odom_frame:  odom
+    map_frame:   map
+    base_frame:  base_link
+    scan_topic:  /scan_filtered
+    mode:        mapping
+
+    # Solver
+    solver_plugin:            solver_plugins::CeresSolver
+    ceres_linear_solver:      SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner:     SCHUR_JACOBI
+    ceres_trust_strategy:     LEVENBERG_MARQUARDT
+    ceres_dogleg_type:        TRADITIONAL_DOGLEG
+    ceres_loss_function:      None
+
+    # Map
+    resolution:           0.03    # metres per cell (3 cm)
+    map_update_interval:  5.0     # seconds between map publishes
+
+    # Scan matching
+    minimum_laser_range:  0.1     # Tmini Plus minimum range
+    max_laser_range:      12.0    # must match lidar range_max (Tmini Plus = 12 m)
+    use_scan_matching:    true
+    use_scan_barycenter:  true
+
+    minimum_travel_distance: 0.3   # metres
+    minimum_travel_heading:  0.3   # radians (~17°)
+    minimum_time_interval:   0.5   # seconds
+
+    throttle_scans:       2        # process every 2nd scan (5 Hz effective) — reduces CPU on Pi
+    scan_buffer_size:     10
+
+    # Loop closure
+    do_loop_closing:                       true
+    loop_match_minimum_chain_size:         10
+    loop_match_minimum_response_coarse:    0.35
+    loop_match_minimum_response_fine:      0.45
+    loop_search_maximum_distance:          4.0
+    loop_match_maximum_variance_covariance: 3.0
+
+    # TF / timing
+    transform_publish_period:   0.05    # seconds (20 Hz map -> odom TF) — reduced to ease CPU
+    transform_timeout:          0.5     # increased to tolerate 10 Hz EKF
+    tf_buffer_duration:         30.0
+    stack_size_to_use:          40000000
+
+    # Interactive mode
+    enable_interactive_mode: true
+
+    debug_logging: false
