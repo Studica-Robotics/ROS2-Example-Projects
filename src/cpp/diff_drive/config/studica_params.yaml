@@ -70,7 +70,7 @@ control_server:
       axis_linear_y:  -1    # unmapped — diff drive has no strafe
       axis_angular_z: 3     # RS-X — turn left / right
       linear_scale:    0.5  # positive: stick up (-1) = backward, so flip sign
-      angular_scale:  -6.0  # DS4 RS-X: negative required; scaled for max_angular: 25 (same duty as old -0.5/2.0)
+      angular_scale:   0.5  # DS4 RS-X: positive required; scaled for max_angular: 25 (same duty as old 0.5/2.0)
       deadzone:       0.05
       button_turbo:   5     # R1
       turbo_multiplier: 2.0

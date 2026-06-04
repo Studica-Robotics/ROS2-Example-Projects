@@ -2,58 +2,84 @@
 <!--
   route_nav_bt.xml — behavior tree for route-server navigation.
 
-  Uses the route_server (ComputeAndTrackRoute) to follow a predefined GeoJSON
+  Uses the route_server (ComputeRoute) to follow a predefined GeoJSON
   graph of waypoints rather than planning freely to any pose.  Constraining the
   robot to known corridors improves reliability in environments with narrow gaps.
 
-  The path follower starts 0.5 s after route tracking to give the route
-  server time to compute the initial path before the controller tries to
-  follow it.
+  Startup sequence:
+    1. ControllerSelector — read controller topic once
+    2. ComputeRoute — compute initial route before follower starts
+    3. Parallel — follow path while monitoring validity at 1 Hz
 
-  Recovery cycles through: clear costmap → wait 1 s → back up 0.3 m.
-  Up to 6 retries.  If a new goal arrives mid-recovery, GoalUpdated exits
-  recovery immediately.
+  Re-plan logic: IsPathValid checks the current path for lethal cells at 1 Hz.
+  If blocked, wait 1.5 s (lets transient lidar noise clear) then ComputeRoute.
+  If ComputeRoute fails (no valid route), KeepRunningUntilFailure propagates
+  failure → RecoveryNode triggers recovery.
+
+  Recovery cycles through: back up → clear costmap → wait 1 s.
+  Up to 6 retries.  GoalUpdated exits recovery immediately on new goal.
 -->
 <root BTCPP_format="4" main_tree_to_execute="NavigateWithRouteTracking">
 
   <BehaviorTree ID="NavigateWithRouteTracking">
 
-    <!-- Wraps the whole tree — on failure, triggers recovery up to 6 times -->
     <RecoveryNode number_of_retries="6" name="NavigateRecovery">
 
-      <PipelineSequence name="NavigateWithTracking">
+      <Sequence name="NavigateWithTracking">
 
-        <!-- Allow the controller plugin to be selected at runtime via topic -->
+        <!-- Read controller selector topic -->
         <ControllerSelector
           selected_controller="{selected_controller}"
           default_controller="FollowPath"
           topic_name="controller_selector"/>
 
-        <!-- Run route tracking and path following in parallel.
-             success_threshold=1 means either child succeeding = overall success. -->
+        <!-- Clear stale global costmap data before planning so CostmapScorer
+             never trips on cells left by a previous navigation session. The
+             static layer repopulates within one update cycle (≤1 s); dynamic
+             obstacles are caught by IsPathValid while following. -->
+        <ClearEntireCostmap
+          service_name="global_costmap/clear_entirely_global_costmap"/>
+
+        <!-- Compute initial route before follower starts — ensures {path} is
+             populated before FollowPath is ever ticked. -->
+        <ComputeRoute
+          goal="{goal}"
+          path="{path}"
+          use_poses="true"/>
+
+        <!-- Follow path while monitoring validity at 1 Hz.
+             success_threshold=1: Parallel succeeds when FollowPath reaches goal.
+             Re-plan branch keeps RUNNING until ComputeRoute fails outright. -->
         <Parallel
-          name="TrackAndFollow"
+          name="PlanAndFollow"
           success_threshold="1"
           failure_threshold="1">
 
-          <!-- Route server streams waypoints continuously as the robot moves -->
-          <ComputeAndTrackRoute
-            goal="{goal}"
-            path="{path}"
-            route="{route}"
-            use_poses="true"/>
+          <!-- Check path validity; re-plan only when a lethal cell blocks it.
+               Transient lidar noise (< 1.5 s duration) does not trigger a re-plan. -->
+          <KeepRunningUntilFailure>
+            <RateController hz="1.0">
+              <Fallback>
+                <IsPathValid path="{path}"/>
+                <Sequence>
+                  <!-- Wait for transient noise to clear before re-planning -->
+                  <Wait wait_duration="1.5"/>
+                  <ComputeRoute
+                    goal="{goal}"
+                    path="{path}"
+                    use_poses="true"/>
+                </Sequence>
+              </Fallback>
+            </RateController>
+          </KeepRunningUntilFailure>
 
-          <!-- 0.5 s delay before following so the route server produces first path -->
-          <Sequence name="DelayedFollowPath">
-            <Wait wait_duration="0.5"/>
-            <FollowPath
-              path="{path}"
-              controller_id="{selected_controller}"/>
-          </Sequence>
+          <FollowPath
+            path="{path}"
+            controller_id="{selected_controller}"/>
 
         </Parallel>
 
-      </PipelineSequence>
+      </Sequence>
 
       <!-- Recovery branch: runs when NavigateWithTracking fails -->
       <ReactiveFallback name="RecoveryFallback">
@@ -61,20 +87,19 @@
         <!-- Abort recovery immediately if the goal changed -->
         <GoalUpdated/>
 
-        <!-- Cycle through recovery actions one at a time on each retry -->
         <RoundRobin name="RecoveryActions">
 
-          <!-- Stale obstacle data is the most common cause — clear it first -->
+          <!-- Back up first — clears space for RSC to rotate onto rerouted path -->
+          <BackUp
+            backup_dist="0.10"
+            backup_speed="0.10"/>
+
+          <!-- Clear stale costmap data -->
           <ClearEntireCostmap
             service_name="local_costmap/clear_entirely_local_costmap"/>
 
-          <!-- Pause to let dynamic obstacles move out of the way -->
+          <!-- Pause to let dynamic obstacles move -->
           <Wait wait_duration="1.0"/>
-
-          <!-- Back up in case the robot is stuck against something -->
-          <BackUp
-            backup_dist="0.30"
-            backup_speed="0.15"/>
 
         </RoundRobin>
 

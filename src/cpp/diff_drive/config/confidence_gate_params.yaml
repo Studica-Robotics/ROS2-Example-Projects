@@ -32,9 +32,9 @@ confidence_scan_gate:
     # Scan blur from motion is the most common source of map smearing.
     enable_motion_gate: true
     max_linear_speed:   0.50    # m/s   — above this the scan is blurred
-    max_angular_speed:  0.75    # rad/s — at 1.5 rad/s robot rotates ~8° per scan sweep, blurring walls into arcs
+    max_angular_speed:  1.50    # rad/s — raised from 0.75: tight gate caused SLAM starvation at corners → doubled walls
     max_linear_accel:   0.75    # m/s²  — reject during hard start/stop
-    max_angular_accel:  1.50    # rad/s²
+    max_angular_accel:  2.00    # rad/s²
 
     # Overlap gate
     # Checks that enough scan points land near existing occupied cells.
@@ -55,11 +55,11 @@ confidence_scan_gate:
     # Non-suspicious points within a run do NOT break it — only a spatial gap
     # larger than ghost_max_point_gap does. This prevents isolated noise from
     # hiding a genuinely bad arc.
-    enable_ghost_wall_gate: false   # disabled for diagnosis — re-enable once SLAM is stable
-    ghost_min_offset:       0.08    # m — closer than this = on the wall (not ghost)
-    ghost_max_offset:       0.35    # m — further than this = unrelated to wall
-    ghost_max_point_gap:    0.18    # m — max gap between suspicious points in a run
-    ghost_min_run_length:   0.75    # m — minimum run length to trigger rejection
+    enable_ghost_wall_gate: true
+    ghost_min_offset:       0.06    # m — closer than this = on the wall (not ghost)
+    ghost_max_offset:       0.25    # m — further than this = unrelated to wall (was 0.35 — too wide for 600mm corridors)
+    ghost_max_point_gap:    0.12    # m — max gap between suspicious points in a run (was 0.18)
+    ghost_min_run_length:   0.50    # m — minimum run length to trigger rejection (was 0.75)
 
     # Starvation guard
     # If the gates are rejecting too high a fraction of scans over a sliding

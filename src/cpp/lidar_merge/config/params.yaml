@@ -34,7 +34,7 @@ lidar_merge:
     # Neighbor filter: after merging, any output bin with fewer than min_neighbors
     # occupied neighbours within ±neighbor_window_deg at a similar range is removed.
     # Set min_neighbors to 0 to disable entirely.
-    min_neighbors:        1       # require at least 1 close neighbour
+    min_neighbors:        2       # require at least 2 close neighbours — kills isolated ghost points
     neighbor_window_deg:  2.0     # search window each side (degrees)
     neighbor_dist_tol:    0.3     # max range difference to count as neighbour (m)
 

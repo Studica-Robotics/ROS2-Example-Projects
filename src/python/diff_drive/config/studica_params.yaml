@@ -70,7 +70,7 @@ control_server:
       axis_linear_y:  -1    # unmapped — diff drive has no strafe
       axis_angular_z: 3     # RS-X — turn left / right
       linear_scale:    0.5  # positive: motor wiring is inverted so flip sign
-      angular_scale:  -1.0  # negative: stick left (-1) = left turn (+z in ROS)
+      angular_scale:  0.5  # negative: stick left (-1) = left turn (+z in ROS)
       deadzone:       0.05
       button_turbo:   5     # R1
       turbo_multiplier: 2.0
