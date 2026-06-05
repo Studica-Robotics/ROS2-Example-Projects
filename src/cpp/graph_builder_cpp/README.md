@@ -34,8 +34,18 @@ ros2 run graph_builder_cpp graph_builder \
 
 1. Open RViz on your VM.
 2. **Add → By topic → `/map` → Map.** In the Map display, set **QoS → Durability → Transient Local** so the map is visible (the map server latches the topic; Best Effort / Volatile will show nothing).
-3. **Add → By topic → `/graph_builder/markers` → MarkerArray.**
+
+   ![Adding map in RViz](doc/adding%20map%20to%20rviz2.png)
+   ![Setting Durability to Transient Local](doc/setting%20durablity%20policy%20to%20transient%20local.png)
+
+3. **Add → By display type  → MarkerArray and set topic to → /graph_builder/MarkerArray/**
+
+   ![Adding MarkerArray](doc/Adding%20marker%20array.png)
+   ![Set topic to graph_builder](doc/set%20topic%20to%20graph_builder.png)
+
 4. Select the **Publish Point** tool in the RViz toolbar (crosshair icon, shortcut **`g`**).
+
+   ![Select Publish Point tool](doc/select%20publish%20point.png)
 
 ### 4. Place nodes
 
@@ -46,6 +56,9 @@ the previous one with a bidirectional edge (green line) — useful for tracing a
 `auto_connect` only chains consecutive nodes. To connect all node pairs that
 have clear line-of-sight, run the `autoconnect` command separately after placing
 all nodes (see step 5).
+
+![Adding points to map](doc/adding%20points%20to%20map.png)
+![Points showing in terminal](doc/points%20showing%20in%20terminal.png)
 
 ### 5. Edit the graph
 
@@ -95,11 +108,15 @@ are not added.
 Auto-connected edges appear **cyan** in RViz. Manual edges appear **green**
 (bidirectional) or **yellow** (one-way).
 
+![Auto-connect run with edges added](doc/auto%20connect%20is%20run%20and%20more%20edges%20added.png)
+
 ### 7. Save and use
 
 ```bash
 ros2 topic pub /graph_builder/cmd std_msgs/msg/String 'data: "save"' --once
 ```
+
+![Save command confirmed in terminal](doc/saved%20command%20run%20and%20confirmed%20in%20terminal.png)
 
 Then launch route navigation with the saved graph:
 

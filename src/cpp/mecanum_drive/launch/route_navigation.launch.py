@@ -29,7 +29,7 @@ Notes:
 """
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -90,7 +90,7 @@ def generate_launch_description():
             description='Full path to the GeoJSON route graph '
                         '(produced by graph_builder_node). '
                         'Example: graph:=$HOME/maps/my_graph.geojson'
-        )
+        ),
 
         # Hardware driver
         IncludeLaunchDescription(
