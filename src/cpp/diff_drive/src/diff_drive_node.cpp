@@ -16,14 +16,28 @@ public:
             "front_left", "front_right", "rear_left", "rear_right"
         };
 
+        const std::string drive_type = declare_parameter<std::string>("drive_type", "pwm");
+        velocity_mode_ = (drive_type == "velocity");
+        max_rpm_ = declare_parameter("max_rpm", 80.0);
+
         for (size_t i = 0; i < 4; ++i) {
             const auto & pos   = positions[i];
             std::string titan  = declare_parameter<std::string>(pos + ".titan", "drive");
             int         port   = declare_parameter<int>(pos + ".port", static_cast<int>(i));
-            std::string topic  = "/" + titan + "/m_" + std::to_string(port) + "/cmd";
 
+            const std::string suffix = velocity_mode_ ? "/rpm_cmd" : "/cmd";
+            std::string topic = "/" + titan + "/m_" + std::to_string(port) + suffix;
             motor_pubs_[i] = create_publisher<std_msgs::msg::Float64>(topic, 1);
             RCLCPP_INFO(get_logger(), "%s -> %s", pos.c_str(), topic.c_str());
+        }
+
+        if (velocity_mode_) {
+            RCLCPP_INFO(get_logger(),
+                "drive_type=velocity max_rpm=%.1f - set studica_params default_pid_type to 2 (mcv2) "
+                "or 1 (legacy)",
+                max_rpm_);
+        } else {
+            RCLCPP_INFO(get_logger(), "drive_type=pwm (open-loop duty)");
         }
 
         max_linear_  = declare_parameter("max_linear",  1.0);
@@ -81,25 +95,38 @@ private:
         current_left_  = ramp(current_left_,  target_left);
         current_right_ = ramp(current_right_, target_right);
 
-        double left  = current_left_;
-        double right = current_right_;
-
-        publish(0,  left);   // front_left
-        publish(1,  right);  // front_right
-        publish(2,  left);   // rear_left
-        publish(3,  right);  // rear_right
+        if (velocity_mode_) {
+            publish_rpm(0, current_left_  * max_rpm_); // front_left
+            publish_rpm(1, current_right_ * max_rpm_); // front_right
+            publish_rpm(2, current_left_  * max_rpm_); // rear_left
+            publish_rpm(3, current_right_ * max_rpm_); // rear_right
+        } else {
+            publish_duty(0, current_left_);  // front_left
+            publish_duty(1, current_right_); // front_right
+            publish_duty(2, current_left_);  // rear_left
+            publish_duty(3, current_right_); // rear_right
+        }
     }
 
-    void publish(size_t idx, double duty)
+    void publish_duty(size_t idx, double duty)
     {
         std_msgs::msg::Float64 msg;
         msg.data = std::clamp(duty, -1.0, 1.0);
         motor_pubs_[idx]->publish(msg);
     }
 
+    void publish_rpm(size_t idx, double rpm)
+    {
+        std_msgs::msg::Float64 msg;
+        msg.data = rpm;
+        motor_pubs_[idx]->publish(msg);
+    }
+
     std::array<rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr, 4> motor_pubs_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr sub_;
     rclcpp::TimerBase::SharedPtr timer_;
+    bool velocity_mode_ = false;
+    double max_rpm_;
     double max_linear_;
     double max_angular_;
     double accel_rate_     = 0.05;

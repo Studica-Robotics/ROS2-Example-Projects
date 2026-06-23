@@ -16,7 +16,8 @@ DS4 (Bluetooth) ──→ joy_node ──→ /joy
                                     │
                                /cmd_vel
                                     │
-                        diff_drive_node ──→ /drive/m_N/cmd  (×4 motors)
+                        diff_drive_node ──→ /drive/m_N/cmd  (×4 motors, pwm mode)
+                        diff_drive_node ──→ /drive/m_N/rpm_cmd  (×4 motors, velocity mode)
 
 /drive/m_N/encoder (×4) ─┐
 /imu ─────────────────────┴──→ odometry_node ──→ /odom
@@ -167,8 +168,50 @@ Publish `true`/`false` (`std_msgs/Bool`) to an LED cmd topic to turn it on/off.
 | Topic | Type | Direction |
 |---|---|---|
 | `/cmd_vel` | `geometry_msgs/Twist` | Input — linear.x + angular.z |
+| `/drive/m_N/cmd` | `std_msgs/Float64` | Output — duty cycle (when `drive_type: pwm`) |
+| `/drive/m_N/rpm_cmd` | `std_msgs/Float64` | Output — target rpm (when `drive_type: velocity`) |
 | `/odom` | `nav_msgs/Odometry` | Output — wheel odometry |
 | `/odometry/filtered` | `nav_msgs/Odometry` | Output — EKF-fused odometry |
+
+### Closed-loop velocity teleop (PID type 1 or 2)
+
+1. In `studica_params.yaml`: `default_pid_type: 2` (or `1` for legacy)
+2. In `params.yaml`: `drive_type: "velocity"` and tune `max_rpm`
+3. Rebuild both `studica_control` and `diff_drive_cpp`, then launch as usual
+
+Run MCV2 autotune before expecting good tracking (see below).
+
+### MCV2 autotune
+
+Requires PID type 2 on the motor(s) being tuned.
+
+**USB (serial)**
+
+| Command | When to use |
+|---|---|
+| `Autotune all ++--` | On the ground — symmetric back/forth; signs match robot motor layout |
+| `Autotune all` | Lifted — one-direction forward sweep |
+| `Autotune 0` | Single motor on the bench |
+
+**ROS / CAN** (`titan_cmd` service on `studica_control`):
+
+```bash
+# Lifted robot — forward-only (same as Autotune all)
+ros2 service call /titan0/titan_cmd studica_control/srv/SetData "{params: 'set_pid_type', initparams: {int_value: 2}}"
+ros2 service call /titan0/titan_cmd studica_control/srv/SetData "{params: 'autotune', initparams: {}}"
+
+# On the ground — symmetric sweep; uses signs from invert_motor in studica_params.yaml
+ros2 service call /titan0/titan_cmd studica_control/srv/SetData "{params: 'autotune_symmetric', initparams: {}}"
+```
+
+Wait ~30–60 s after symmetric autotune (longer than lifted-only). 
+
+On startup, `diff_drive` should log `drive_type=velocity` and topic lines ending in `/rpm_cmd`. If you still see `switch to pid type 0 before open-loop duty commands`, something is publishing to `/drive/m_N/cmd` (usually an old pwm-mode `diff_drive_node` still running):
+
+```bash
+ros2 param get /diff_drive drive_type
+ros2 topic info /drive/m_0/cmd -v
+```
 
 ## Build
 

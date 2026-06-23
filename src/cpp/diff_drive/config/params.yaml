@@ -34,6 +34,11 @@ diff_drive:
     max_linear:  0.6273 # using the 50.9:1 drive motors
     max_angular: 25.0   # measured: 0.3 cmd at old 2.0 → 4 rad/s physical → actual max ≈ 27 rad/s
 
+    # drive_type: "pwm" - open-loop duty on /drive/m_N/cmd; set studica_params default_pid_type: 0
+    # drive_type: "velocity" - closed-loop rpm on /drive/m_N/rpm_cmd; set default_pid_type: 2 (or 1 for legacy)
+    drive_type: "velocity"
+    max_rpm: 80.0                  # full stick → ±max_rpm per side (motors rated ~100; keep below rating)
+
     cmd_vel_topic: "cmd_vel"
 
     # Rate at which motor commands are sent to the Titan via studica_control topics.

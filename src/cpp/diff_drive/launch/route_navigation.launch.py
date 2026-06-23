@@ -57,6 +57,8 @@ def generate_launch_description():
     with open(os.path.join(pkg, 'config', 'studica_params.yaml'), 'r') as f:
         _studica_cfg = yaml.safe_load(f)
     _studica_cfg['control_server']['ros__parameters']['gamepad']['enabled'] = False
+    # NAV uses the symmetric S-curve (smooth accel AND decel) - Nav2 already plans smooth trajectories.
+    _studica_cfg['control_server']['ros__parameters']['titan']['drive']['scurve_profile'] = 0
     _tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
     yaml.dump(_studica_cfg, _tmp)
     _tmp.close()
