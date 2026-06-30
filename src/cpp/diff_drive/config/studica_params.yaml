@@ -22,8 +22,9 @@ control_server:
         can_id: 10          # CAN bus ID of your Titan — check with titan_cmd service
         motor_freq: 15600   # PWM frequency in Hz (15600 is the Titan default)
         default_pid_type: 2 # 0=pwm, 1=legacy, 2=mcv2 - match diff_drive drive_type
-        scurve_profile: 1   # MCV2 velocity ramp: 0=nav (symmetric S-curve), 1=teleop (smooth accel, fast decel)
-                            # manual_drive = teleop; navigation.launch.py overrides this to 0 (nav)
+        scurve_profile: 1   # MCV2 ONLY - velocity ramp: 0=nav (symmetric S-curve), 1=teleop (smooth accel, fast decel)
+                            # manual_drive uses 1 (teleop); navigation.launch.py overrides this to 0 (nav)
+        autotune_distance_m: 1.0  # max forward travel per step during on the ground (symmetric) autotune, 0.5 to 5.0 metres
 
         # Back-left — positive duty cycle = wheel drives robot forward
         m_0:

@@ -204,7 +204,7 @@ ros2 service call /titan0/titan_cmd studica_control/srv/SetData "{params: 'autot
 ros2 service call /titan0/titan_cmd studica_control/srv/SetData "{params: 'autotune_symmetric', initparams: {}}"
 ```
 
-Wait ~30–60 s after symmetric autotune (longer than lifted-only). 
+Wait ~30–60 s after symmetric autotune (longer than regular autotune).
 
 On startup, `diff_drive` should log `drive_type=velocity` and topic lines ending in `/rpm_cmd`. If you still see `switch to pid type 0 before open-loop duty commands`, something is publishing to `/drive/m_N/cmd` (usually an old pwm-mode `diff_drive_node` still running):
 
